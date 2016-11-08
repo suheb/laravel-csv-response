@@ -17,13 +17,13 @@ class ResponseFactory extends BaseResponseFactory
      * @param  string  $encoding
      * @return \Illuminate\Http\Response
      */
-    public function csv($data, $status = 200, $headers = [], $encoding = 'WINDOWS-1252')
+    public function csv($data, $delimiter=',', $isQuoted = false, $status = 200, $headers = [], $encoding = 'WINDOWS-1252')
     {
         if ($this->dataIsEmpty($data)) {
             return $this->make('No Content', 204);
         }
 
-        $csv = $this->formatCsv($data, $encoding);
+        $csv = $this->formatCsv($data, $delimiter, $isQuoted, $encoding);
         $headers = $this->createCsvHeaders($headers, $encoding);
 
         return $this->make($csv, $status, $headers);
@@ -51,15 +51,15 @@ class ResponseFactory extends BaseResponseFactory
      * @param  string  $encoding
      * @return string
      */
-    protected function formatCsv($data, $encoding)
+    protected function formatCsv($data, $delimiter, $isQuoted, $encoding)
     {
         if (is_string($data)) {
             $csv = $data;
         } else {        
             $csvArray = [];
 
-            $this->addHeaderToCsvArray($csvArray, $data);
-            $this->addRowsToCsvArray($csvArray, $data);
+            $this->addHeaderToCsvArray($csvArray, $data, $delimiter, $isQuoted);
+            $this->addRowsToCsvArray($csvArray, $data, $delimiter, $isQuoted);
 
             $csv = implode("\r\n", $csvArray);
         }
@@ -74,14 +74,14 @@ class ResponseFactory extends BaseResponseFactory
      * @param  \Illuminate\Support\Collection|array  $data
      * @return void
      */
-    protected function addHeaderToCsvArray(&$csvArray, $data)
+    protected function addHeaderToCsvArray(&$csvArray, $data, $delimiter, $isQuoted)
     {
         $firstRowData = $this->getRowData($data[0]);
 
         if (Arr::isAssoc($firstRowData)) {
             $rowData = array_keys($firstRowData);
 
-            $csvArray[0] = $this->rowDataToCsvString($rowData);
+            $csvArray[0] = $this->rowDataToCsvString($rowData, $delimiter, $isQuoted);
         }
     }
 
@@ -92,12 +92,12 @@ class ResponseFactory extends BaseResponseFactory
      * @param  \Illuminate\Support\Collection|array  $data
      * @return void
      */
-    protected function addRowsToCsvArray(&$csvArray, $data)
+    protected function addRowsToCsvArray(&$csvArray, $data, $delimiter, $isQuoted)
     {
         foreach ($data as $row) {
             $rowData = $this->getRowData($row);
 
-            $csvArray[] = $this->rowDataToCsvString($rowData);
+            $csvArray[] = $this->rowDataToCsvString($rowData, $delimiter, $isQuoted);
         }
     }
 
@@ -122,13 +122,15 @@ class ResponseFactory extends BaseResponseFactory
      * @param  array  $row
      * @return string
      */
-    protected function rowDataToCsvString($row)
+    protected function rowDataToCsvString($row, $delimiter, $isQuoted)
     {
-        array_walk($row, function (&$cell) {
-            $cell = '"' . str_replace('"', '""', $cell) . '"';
-        });
+        if($isQuoted) {
+            array_walk($row, function (&$cell) {
+                $cell = '"' . str_replace('"', '""', $cell) . '"';
+            });
+        }
 
-        return implode(';', $row);
+        return implode($delimiter, $row);
     }
 
     /**
